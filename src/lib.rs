@@ -1,20 +1,20 @@
 extern crate serde;
 extern crate serde_json;
 
-
 use error::ResourceParseError;
 
 use crate::model::ResourceList::ResourceList;
 
-pub mod model;
 pub mod error;
+pub mod model;
 
-pub fn fhir_json_parse(fhir_json: &str) -> Result<ResourceList, ResourceParseError> {
-    let parsed_fhir = serde_json::from_str(&fhir_json)?;
-
+pub fn fhir_json_parse(
+    fhir_json: impl ToString,
+) -> Result<ResourceList<'static>, ResourceParseError> {
+    let parsed_fhir = serde_json::from_str(&fhir_json.to_string())?;
     let resource = ResourceList { value: parsed_fhir };
     if resource.resource().is_none() {
-        return Err(ResourceParseError::UnknownFHIRResource)
+        return Err(ResourceParseError::UnknownFHIRResource);
     }
     if !resource.validate() {
         return Err(ResourceParseError::ValidationError);
@@ -163,10 +163,12 @@ mod tests {
             let resource = ResourceList::ResourceList {
                 value: Cow::Borrowed(&value),
             };
-            if let Some(ResourceList::ResourceListEnum::ResourceVisionPrescription(vision_prescription)) =
-            resource.resource()
+            if let Some(ResourceList::ResourceListEnum::ResourceVisionPrescription(
+                vision_prescription,
+            )) = resource.resource()
             {
-                let mut builder = VisionPrescription::VisionPrescriptionBuilder::with(vision_prescription);
+                let mut builder =
+                    VisionPrescription::VisionPrescriptionBuilder::with(vision_prescription);
                 builder.language("Pirate");
                 assert_eq!(
                     builder.build().to_json().to_string(),
@@ -177,6 +179,39 @@ mod tests {
             }
         } else {
             assert!(false, "Failed to locate the file");
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use actix_web::{test, web, App, Error, HttpResponse};
+        use std::fs;
+        pub async fn resource_parse(
+            resource: crate::model::ResourceList::ResourceList<'_>,
+        ) -> core::result::Result<HttpResponse, Error> {
+            Ok(HttpResponse::Ok().json(resource.to_json()))
+        }
+        #[actix_rt::test]
+        async fn test_index_get() {
+            let paths = fs::read_dir("examples-json/").unwrap();
+            let mut app =
+                test::init_service(App::new().route("/", web::get().to(resource_parse))).await;
+            for path in paths {
+                let unwrapped_path = path.unwrap().path();
+                println!("Beginning {}", &unwrapped_path.to_str().unwrap());
+                let schema_contents = fs::read_to_string(&unwrapped_path)
+                    .expect("Something went wrong reading the file");
+
+                let parsed: serde_json::Result<serde_json::value::Value> =
+                    serde_json::from_str(&schema_contents);
+                let req = test::TestRequest::with_header("content-type", "text/plain")
+                    .set_json(&parsed.unwrap())
+                    .to_request();
+                let resp = test::call_service(&mut app, req).await;
+                println!("{:?}", resp.status());
+
+                assert!(resp.status().is_success());
+            }
         }
     }
 }

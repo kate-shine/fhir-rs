@@ -21,3 +21,6 @@ impl From<serde_json::error::Error> for ResourceParseError {
         Self::JsonParseError(err)
     }
 }
+
+#[cfg(feature = "actix_web")]
+impl actix_web::error::ResponseError for ResourceParseError {}

@@ -318,7 +318,7 @@ impl ResourceList<'_> {
     pub fn resource(&self) -> Option<ResourceListEnum> {
         let fhir_type = self.value.get("resourceType")?;
         if !fhir_type.is_string() {
-            return None
+            return None;
         }
 
         match fhir_type.as_str().expect("resourceType must be a string") {
@@ -1354,5 +1354,42 @@ impl ResourceList<'_> {
             }
         }
         return false;
+    }
+}
+
+#[cfg(feature = "actix_web")]
+use actix_web::{dev, web, FromRequest, HttpRequest};
+#[cfg(feature = "actix_web")]
+use futures_util::StreamExt;
+#[cfg(feature = "actix_web")]
+use serde::de::Error;
+#[cfg(feature = "actix_web")]
+use std::future::Future;
+#[cfg(feature = "actix_web")]
+use std::ops::Deref;
+#[cfg(feature = "actix_web")]
+use std::pin::Pin;
+
+#[cfg(feature = "actix_web")]
+impl FromRequest for ResourceList<'_> {
+    type Error = crate::error::ResourceParseError;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
+    type Config = ();
+
+    fn from_request(_req: &HttpRequest, payload: &mut dev::Payload) -> Self::Future {
+        let mut payload = payload.take();
+        let bytes = async move {
+            let mut bytes = web::BytesMut::new();
+            while let Some(item) = payload.next().await {
+                bytes.extend_from_slice(&item.unwrap());
+            }
+            let bytes = bytes.clone();
+            let content =
+                crate::fhir_json_parse(&String::from_utf8(bytes.deref().to_owned()).map_err(
+                    |e| Self::Error::JsonParseError(serde_json::Error::custom(e.to_string())),
+                )?);
+            return content;
+        };
+        return Box::pin(bytes);
     }
 }
