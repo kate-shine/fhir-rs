@@ -693,7 +693,7 @@ impl CommunicationBuilder {
     }
 
     pub fn new() -> CommunicationBuilder {
-        let mut __value: Value = json!({});
+        let mut __value: Value = json!({ "resourceType": "Communication" });
         return CommunicationBuilder { value: __value };
     }
 
