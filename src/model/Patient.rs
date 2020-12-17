@@ -22,7 +22,7 @@ use std::borrow::Cow;
 /// Demographics and other administrative information about an individual or animal
 /// receiving care or other health-related services.
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Patient<'a> {
     pub(crate) value: Cow<'a, Value>,
 }

@@ -38,7 +38,7 @@ use std::borrow::Cow;
 
 /// Optional Extension Element - found in all resources.
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Extension<'a> {
     pub(crate) value: Cow<'a, Value>,
 }

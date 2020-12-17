@@ -18,7 +18,7 @@ use std::borrow::Cow;
 /// responsible provider, a public health agency that was notified about a
 /// reportable condition.
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Communication<'a> {
     pub(crate) value: Cow<'a, Value>,
 }
